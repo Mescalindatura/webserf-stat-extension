@@ -1,53 +1,58 @@
-// Copyright 2022 Google LLC
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+let activeTabsData = [];
 
-const tabs = await chrome.tabs.query({
-    url: [
-        'https://developer.chrome.com/docs/webstore/*',
-        'https://developer.chrome.com/docs/extensions/*'
-    ]
-});
+// Function to update the activeTabsData with the current active tabs
+async function updateActiveTabsData() {
+    const activeTabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    activeTabsData = activeTabs.map(tab => {
+        console.log("active tab id: ", tab.id);
+        // const title = tab.title.split('-')[0].trim();
+        // const hostname = new URL(tab.url).hostname;
+        const title = tab.id;
+        const hostname=tab.status;
+        return { title, hostname };
+    });
 
-// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Collator
+    //todo: put datetime to the record for future analytics
+//    chrome.storage.local.set({ activeTabsData });
+}
+
+// Query and update activeTabsData on initialization
+await updateActiveTabsData();
+
+// Sort activeTabsData
 const collator = new Intl.Collator();
-tabs.sort((a, b) => collator.compare(a.title, b.title));
+activeTabsData.sort((a, b) => collator.compare(a.title, b.title));
 
+// Render tabs list
 const template = document.getElementById('li_template');
 const elements = new Set();
-for (const tab of tabs) {
+for (const tab of activeTabsData) {
     const element = template.content.firstElementChild.cloneNode(true);
 
-    const title = tab.title.split('-')[0].trim();
-    const pathname = new URL(tab.url).pathname.slice('/docs'.length);
-
-    element.querySelector('.title').textContent = title;
-    element.querySelector('.pathname').textContent = pathname;
+    element.querySelector('.title').textContent = tab.title;
+    element.querySelector('.pathname').textContent = tab.hostname; // Use tab.hostname instead of tab.pathname
     element.querySelector('a').addEventListener('click', async () => {
-        // need to focus window as well as the active tab
-        await chrome.tabs.update(tab.id, { active: true });
-        await chrome.windows.update(tab.windowId, { focused: true });
+        // Since we are using activeTabsData, we don't need to update tabs or windows
     });
 
     elements.add(element);
 }
+
+function displayAnalytics() {
+    // Retrieve activeTabsData from local storage
+    chrome.storage.local.get(['activeTabsData'], result => {
+        const storedData = result.activeTabsData || [];
+        console.log("Analytics:", storedData);
+    });
+}
+
 document.querySelector('ul').append(...elements);
 
+// Code for analytics button
 const button = document.querySelector('button');
 button.addEventListener('click', async () => {
-    const tabIds = tabs.map(({ id }) => id);
-    if (tabIds.length) {
-        const group = await chrome.tabs.group({ tabIds });
-        await chrome.tabGroups.update(group, { title: 'DOCS' });
-    }
+    await updateActiveTabsData();
+    displayAnalytics();
 });
+
+
