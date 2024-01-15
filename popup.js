@@ -4,11 +4,11 @@ let activeTabsData = [];
 async function updateActiveTabsData() {
     const activeTabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
     activeTabsData = activeTabs.map(tab => {
-        console.log("active tab id: ", tab.id);
+        console.log("active tab: ", tab);
         // const title = tab.title.split('-')[0].trim();
         // const hostname = new URL(tab.url).hostname;
-        const title = tab.id;
-        const hostname=tab.status;
+        const title = tab.title;
+        const hostname=new URL(tab.url).hostname;
         return { title, hostname };
     });
 
